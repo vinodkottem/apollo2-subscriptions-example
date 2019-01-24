@@ -15,7 +15,6 @@ input MessageInput{
 }
 
 type Message {
-  channelId: ID!
   id: ID!
   text: String
 }
@@ -23,6 +22,7 @@ type Message {
 type Query {
   channels: [Channel]   
   channel(id: ID!): Channel
+  messages(channelId: ID!): [Message]
 }
 
 type Mutation {

@@ -42,6 +42,10 @@ export const resolvers = {
     },
     channel: (root, { id }) => {
       return channels.find(channel => channel.id === id);
+    },
+    messages: (root, { channelId }) => {
+      const data = channels.find(channel => channel.id === channelId);
+      return (data && data.messages) || [];
     }
   },
   Mutation: {
@@ -76,7 +80,6 @@ export const resolvers = {
       subscribe: withFilter(
         () => pubsub.asyncIterator("messageAdded"),
         (payload, variables) => {
-          console.log(payload);
           return payload.channelId === variables.channelId;
         }
       )

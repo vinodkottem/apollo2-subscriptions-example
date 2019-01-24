@@ -3,6 +3,7 @@ import gql from "graphql-tag";
 import { Query, Mutation, Subscription } from "react-apollo";
 
 import "./App.css";
+import Messages from "./Messages";
 
 const COMMENTS_SUBSCRIPTION = gql`
   subscription onMessageAdd($channelId: ID!) {
@@ -22,10 +23,18 @@ const ADD_MESSAGE = gql`
   }
 `;
 
+const QUERY_CHANNEL = gql`
+  query Messages($channelId: ID!) {
+    messages(channelId: $channelId) {
+      id
+      text
+    }
+  }
+`;
+
 class App extends Component {
   state = {
     value: "",
-    channelHistory: {},
     selectedChannel: "1"
   };
 
@@ -37,56 +46,11 @@ class App extends Component {
     this.setState({ value: "" });
   };
 
-  // this is not required as we have "subscribeToMore" option
-  // but to make the app look simple doing this
-  _addToHistory = ({ client, subscriptionData: { data } }) => {
-    const { channelHistory, selectedChannel } = this.state;
-    const { messageAdded } = data;
-    const prevData = channelHistory[selectedChannel];
-    const newData = prevData
-      ? [...prevData, messageAdded.text]
-      : [messageAdded.text];
-    this.setState({
-      channelHistory: {
-        ...channelHistory,
-        [selectedChannel]: newData
-      }
-    });
-  };
-
   render() {
     const { value, selectedChannel, channelHistory } = this.state;
     return (
       <div className="App">
         <div>
-          <div>
-            <Subscription
-              subscription={COMMENTS_SUBSCRIPTION}
-              variables={{ channelId: selectedChannel }}
-              onSubscriptionData={this._addToHistory}
-            >
-              {({ data: { messageAdded } = {}, loading }) => {
-                return (
-                  <div>
-                    <h4>
-                      {" "}
-                      Channel 1 latest:{" "}
-                      {!loading && messageAdded && messageAdded.text}
-                    </h4>
-                    <textarea
-                      readOnly
-                      value={
-                        channelHistory[selectedChannel] &&
-                        channelHistory[selectedChannel].join("\r\n")
-                      }
-                      cols={30}
-                      rows={10}
-                    />
-                  </div>
-                );
-              }}
-            </Subscription>
-          </div>
           <div>
             <Mutation mutation={ADD_MESSAGE}>
               {(addMessage, { data }) => (
@@ -111,6 +75,33 @@ class App extends Component {
                 </div>
               )}
             </Mutation>
+          </div>
+          <div>
+            <Query
+              query={QUERY_CHANNEL}
+              variables={{
+                channelId: selectedChannel
+              }}
+            >
+              {({ subscribeToMore, ...result }) => (
+                <Messages
+                  {...result}
+                  subscribeToNewComments={() =>
+                    subscribeToMore({
+                      document: COMMENTS_SUBSCRIPTION,
+                      variables: { channelId: selectedChannel },
+                      updateQuery: (prev, { subscriptionData }) => {
+                        if (!subscriptionData.data) return prev;
+                        const newFeedItem = subscriptionData.data.messageAdded;
+                        return Object.assign({}, prev, {
+                          messages: [...prev.messages, newFeedItem]
+                        });
+                      }
+                    })
+                  }
+                />
+              )}
+            </Query>
           </div>
         </div>
       </div>
